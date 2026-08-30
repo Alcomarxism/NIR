@@ -4,7 +4,6 @@ import asyncio
 COLOR_FOG = (30, 30, 30)
 COLOR_EMPTY = (230, 230, 230)
 COLOR_WALL = (70, 70, 70)
-COLOR_TARGET = (46, 204, 113)
 COLOR_AGENT = (231, 76, 60)
 COLOR_GRID = (180, 180, 180)
 
@@ -32,15 +31,15 @@ class Visualizator():
                 if cell_type == 1:
                     pygame.draw.rect(self.screen, COLOR_WALL, rect)
                 elif cell_type == 2:
-                    pygame.draw.rect(self.screen, COLOR_TARGET, rect)
+                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)  
+                    self.draw_agent((r,c))
                 else:
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)  
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)
 
-    def render(self,field,agent_pos):
+    def render(self,field):
         self.screen.fill(COLOR_FOG)
         self.draw_field(field)
-        self.draw_agent(agent_pos)
         pygame.display.flip()
 
     async def run_async_visualization(self,sim):
@@ -49,6 +48,6 @@ class Visualizator():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False        
-            self.render(sim.env.get_field(),sim.env.get_agent_pos())
+            self.render(sim.env.get_field())
             await asyncio.sleep(0) 
             self.clock.tick(60)
