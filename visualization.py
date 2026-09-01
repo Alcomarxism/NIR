@@ -86,6 +86,6 @@ class Visualizator:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            self.render(sim.env.get_field(), sim.agent.memory)
+            self.render(sim.env.get_field(), sim.comander.memory)
             await asyncio.sleep(0)
             self.clock.tick(60)

@@ -3,8 +3,8 @@ def generate_field():
     field=[
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-        [1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1],
@@ -41,15 +41,17 @@ class Enviroment:
                 if 0 <= nr < self.grid_size and 0 <= nc < self.grid_size and not(nr==r and nc==c):
                     self.explored_cells.add((nr, nc))
                     cell_type = self.grid[nr][nc]
-                    view[f"[{nr},{nc}]"] = "WALL" if cell_type == 1 else ("TARGET" if cell_type == 2 else "EMPTY")
+                    view[f"[{nr},{nc}]"] = "WALL" if cell_type == 1 else ("RECOON" if cell_type == 2 else "EMPTY")
         return view
 
-    def step(self,agent_pos, newpos):
-        r,c=agent_pos
-        nr,nc=newpos
-        if 0 <= nr < self.grid_size and 0 <= nc < self.grid_size and self.grid[nr][nc] != 1:
+    def step(self,agent, action):
+        r,c=agent.pos
+        dr, dc = {"N": (-1, 0), "S": (1, 0), "W": (0, -1), "E": (0, 1)}.get(action, (0, 0))
+        newpos = (r + dr, c + dc)
+        if 0 <= newpos[0] < self.grid_size and 0 <= newpos[1] < self.grid_size and self.grid[newpos[0]][newpos[1]] == 0:
             self.grid[r][c] = 0
-            self.grid[nr][nc] = 2
+            self.grid[newpos[0]][newpos[1]] = 2
+            agent.pos=newpos
             return True, "Успешный шаг."
         else:
             self.grid[r][c] = 2
