@@ -11,52 +11,53 @@ class BaseAgent():
         self.parser=PydanticOutputParser(pydantic_object=response_type)
         self.prompt=prompt
         self.llm = ChatOllama(
-            model="qwen2.5:3b",
-            temperature=1
+            model="gpt-oss:120b-cloud",
+            temperature=0.1,
+            format="json",
         )
-        self.structured_llm = self.llm.with_structured_output(response_type)
-        self.chain = self.prompt | self.structured_llm
+        self.chain = self.prompt | self.llm | self.parser
 
-
-class Agent(BaseAgent):
+class AgentRecoon(BaseAgent):
     class AgentDecision(BaseModel):
         thought: str = Field(description="Анализ карты и планирование следующего шага.")
         action: Literal["N", "S", "W", "E"] = Field(description="Действие: N, S, W или E.")
         updated_map_memory: str = Field(description="Обновленная краткая память о карте и развилках.")
 
     def __init__(self,pos):
+        parser = PydanticOutputParser(pydantic_object=AgentRecoon.AgentDecision)
         prompt=PromptTemplate(
-            template="""Ты — тактический разведчик в лабиринте 20x20. Твоя цель — найти второго агента TARGET.
-            Ты видишь только соседние клетки (Fog of War).
+            template="""Ты — разведчик в лабиринте Твоя цель — изучить весь лабиринт.
             
-            старайся двигаться к центру поля
-
             Текущая позиция: {pos}
-            Что видишь прямо сейчас: {visibility}
-            Твоя память о карте с прошлого хода: {memory}
+            Твоя память о карте: {memory}
             Результат прошлого действия: {last_feedback}
 
             Заполни структуру ответа:
             - thought: краткие мысли и планирование
             - action: выбор направления (N, S, W, E)
             - updated_map_memory: обновленная память о развилках
+
+            {format_instructions}
             """,
-            input_variables=["pos", "visibility", "memory", "last_feedback"]
+            input_variables=["pos", "memory", "last_feedback"],
+            partial_variables={"format_instructions": parser.get_format_instructions()}
         )
-        self.memory = "Старт в [0,0]. Карта пока не исследована."
-        self.last_feedback = "Начало миссии."
+        self.memory = {f"[{i},{j}]": '?' for i in range(20) for j in range(20)}
+        self.last_feedback = "Старт"
         self.pos=pos
-        super().__init__(prompt,Agent.AgentDecision)
+        super().__init__(prompt,AgentRecoon.AgentDecision)
 
     async def make_desigion(self,env):
         visibility = env.get_fog_view(self.pos,1)
-        decision: Agent.AgentDecision = await self.chain.ainvoke({
+        for v in visibility:
+            self.memory[v]=visibility[v]
+
+        decision: AgentRecoon.AgentDecision = await self.chain.ainvoke({
             "pos": str(self.pos),
             "visibility": json.dumps(visibility),
-            "memory": self.memory,
+            "memory": json.dumps(self.memory),
             "last_feedback": self.last_feedback,
         })
-        self.memory = decision.updated_map_memory
         print(f"Позиция: {self.pos}")
         print(f"Мысли: {decision.thought}")
         print(f"Действие: {decision.action}")
