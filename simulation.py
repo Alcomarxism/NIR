@@ -4,8 +4,8 @@ import enviroment
 class Simulation():
     def __init__(self):
         self.env = enviroment.Enviroment()
-        self.squad1=squad.Squad(self.env,[(1,1),(1,2),(2,1)])
-        self.squad2=squad.Squad(self.env,[(18,18),(17,18),(18,17)])
+        self.squad1=squad.Squad(self.env,[(1,1),(1,2),(2,1)],"RED")
+        self.squad2=squad.Squad(self.env,[(18,18),(17,18),(18,17)],"BLUE")
     async def step(self,step_num):
         print(f"\n[Шаг {step_num}]")
         await self.squad1.step()

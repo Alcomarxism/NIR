@@ -5,7 +5,8 @@ import pygame
 COLOR_FOG = (30, 30, 30)
 COLOR_EMPTY = (230, 230, 230)
 COLOR_WALL = (70, 70, 70)
-COLOR_AGENT = (231, 76, 60)
+COLOR_AGENT_RED = (255, 0, 0)
+COLOR_AGENT_BLUE = (0, 0, 255)
 COLOR_GRID = (180, 180, 180)
 COLOR_FRONTIER = (255, 0, 0)
 COLOR_TEXT_BG = (20, 20, 20)
@@ -30,7 +31,7 @@ class Visualizator:
         pygame.display.set_caption("Simulation & Teams Memory")
         self.clock = pygame.time.Clock()
 
-    def draw_agent(self, agent_pos, offset_x=0, offset_y=0):
+    def draw_agent(self, agent_pos,color, offset_x=0, offset_y=0):
         agent_x = (
             offset_x + agent_pos[1] * self.cell_size + self.cell_size // 2
         )
@@ -38,7 +39,7 @@ class Visualizator:
             offset_y + agent_pos[0] * self.cell_size + self.cell_size // 2
         )
         pygame.draw.circle(
-            self.screen, COLOR_AGENT, (agent_x, agent_y), self.cell_size // 3
+            self.screen, color, (agent_x, agent_y), self.cell_size // 3
         )
 
     def draw_field(self, field, offset_x=0, offset_y=0):
@@ -53,9 +54,12 @@ class Visualizator:
                 cell_type = field[r][c]
                 if cell_type == 1:
                     pygame.draw.rect(self.screen, COLOR_WALL, rect)
-                elif cell_type == 2:
+                elif cell_type == "RED":
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
-                    self.draw_agent((r, c), offset_x, offset_y)
+                    self.draw_agent((r, c),COLOR_AGENT_RED, offset_x, offset_y)
+                elif cell_type == "BLUE":
+                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
+                    self.draw_agent((r, c),COLOR_AGENT_BLUE, offset_x, offset_y)
                 else:
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)

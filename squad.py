@@ -1,7 +1,8 @@
 import agents
 
 class Squad():
-    def __init__(self, enviroment,recoons_start_pos):
+    def __init__(self, enviroment,recoons_start_pos,squad_name):
+        self.squad_name=squad_name
         self.env = enviroment
         self.map = [['?' for _ in range(20)] for _ in range(20)]
         self.agents={agents.AgentRecoon(recoons_start_pos[i],"Recoon"+str(i),self) for i in range(len(recoons_start_pos))}
