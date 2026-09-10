@@ -1,5 +1,27 @@
 from collections import deque
 
+
+def has_line_of_sight(grid,r0, c0, r1, c1):
+            dr = abs(r1 - r0)
+            dc = abs(c1 - c0)
+            sr = 1 if r0 < r1 else -1
+            sc = 1 if c0 < c1 else -1
+            err = dr - dc
+            curr_r, curr_c = r0, c0
+            while True:
+                if curr_r == r1 and curr_c == c1:
+                    return True
+                if (curr_r, curr_c) != (r0, c0) and grid[curr_r][curr_c] == 1:
+                    return False
+                e2 = 2 * err
+                if e2 > -dc:
+                    err -= dc
+                    curr_r += sr
+                if e2 < dr:
+                    err += dr
+                    curr_c += sc
+
+
 def find_path_bfs(start, target, squad_map):
     if start == target:
         return [start]
