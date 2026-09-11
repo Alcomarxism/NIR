@@ -16,12 +16,10 @@ COLOR_TEXT = (220, 220, 220)
 
 class Visualizator:
 
-    def __init__(self, grid_size=20, cell_size=20, padding=20):
-        self.grid_size = grid_size
-        self.cell_size = cell_size
+    def __init__(self, padding=20):
         self.padding = padding
-        self.field_width = self.grid_size * cell_size
-        self.field_height = self.grid_size * cell_size
+        self.field_width = 400
+        self.field_height = 400
         self.width = self.field_width * 2 + self.padding
         self.height = self.field_height * 2 + self.padding
 
@@ -32,76 +30,59 @@ class Visualizator:
         pygame.display.set_caption("Simulation & Teams Memory")
         self.clock = pygame.time.Clock()
 
-    def draw_agent(self, agent_pos, color, offset_x=0, offset_y=0):
+    def draw_agent(self, cell_size, agent_pos, color, offset_x=0, offset_y=0):
         agent_x = (
-            offset_x + agent_pos[1] * self.cell_size + self.cell_size // 2
+            offset_x + agent_pos[1] * cell_size + cell_size // 2
         )
         agent_y = (
-            offset_y + agent_pos[0] * self.cell_size + self.cell_size // 2
+            offset_y + agent_pos[0] * cell_size + cell_size // 2
         )
         pygame.draw.circle(
-            self.screen, color, (agent_x, agent_y), self.cell_size // 3
+            self.screen, color, (agent_x, agent_y), cell_size // 3
         )
 
-    def draw_field(self, field, offset_x=0, offset_y=0):
-        for r in range(self.grid_size):
-            for c in range(self.grid_size):
-                rect = pygame.Rect(
-                    offset_x + c * self.cell_size,
-                    offset_y + r * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
-                )
-                cell_type = field[r][c]
+    def draw_field(self, sim, offset_x=0, offset_y=0):
+        cell_size=self.field_width/len(sim.map)
+        for r in range(len(sim.map)):
+            for c in range(len(sim.map)):
+                rect = pygame.Rect(offset_x + c * cell_size,offset_y + r * cell_size, cell_size, cell_size)
+                cell_type = sim.map[r][c]
                 if cell_type == 1:
                     pygame.draw.rect(self.screen, COLOR_WALL, rect)
-                elif cell_type == "RED":
-                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
-                    self.draw_agent(
-                        (r, c), COLOR_AGENT_RED, offset_x, offset_y
-                    )
-                elif cell_type == "BLUE":
-                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
-                    self.draw_agent(
-                        (r, c), COLOR_AGENT_BLUE, offset_x, offset_y
-                    )
                 else:
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)
+        for sq in sim.squads:
+            for ag in sim.squads[sq].agents:
+                if sq=="RED":
+                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_RED, offset_x, offset_y)
+                elif sq=="BLUE":
+                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_BLUE, offset_x, offset_y)
+
 
     def draw_memory(self, memory, offset_x=0, offset_y=0):
-        for r in range(self.grid_size):
-            for c in range(self.grid_size):
-                rect = pygame.Rect(
-                    offset_x + c * self.cell_size,
-                    offset_y + r * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
-                )
+        cell_size=self.field_width/len(memory)
+        for r in range(len(memory)):
+            for c in range(len(memory)):
+                rect = pygame.Rect( offset_x + c * cell_size, offset_y + r * cell_size, cell_size, cell_size)
                 cell_type = memory[r][c]
                 if cell_type == "?":
                     pygame.draw.rect(self.screen, COLOR_FOG, rect)
                 elif cell_type == "WALL":
                     pygame.draw.rect(self.screen, COLOR_WALL, rect)
+                elif cell_type == "RED":
+                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
+                    self.draw_agent(cell_size,(r, c), COLOR_AGENT_RED, offset_x, offset_y)
+                elif cell_type == "BLUE":
+                    pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
+                    self.draw_agent(cell_size,(r, c), COLOR_AGENT_BLUE, offset_x, offset_y)
                 else:
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)
 
-    def draw_frontiers(self, frontiers, offset_x=0, offset_y=0):
-        for f in frontiers:
-            cell = ast.literal_eval(f) if isinstance(f, str) else f
-            rect = pygame.Rect(
-                offset_x + cell[1] * self.cell_size,
-                offset_y + cell[0] * self.cell_size,
-                self.cell_size,
-                self.cell_size,
-            )
-            pygame.draw.rect(self.screen, COLOR_FRONTIER, rect)
 
     def draw_split_info_panel(self, logs_team1, logs_team2, offset_x=0, offset_y=0):
-        panel_rect = pygame.Rect(
-            offset_x, offset_y, self.field_width, self.field_height
-        )
+        panel_rect = pygame.Rect(offset_x, offset_y, self.field_width, self.field_height)
         pygame.draw.rect(self.screen, COLOR_TEXT_BG, panel_rect)
         pygame.draw.rect(self.screen, COLOR_GRID, panel_rect, 1)
         half_width = self.field_width // 2
@@ -154,31 +135,14 @@ class Visualizator:
             "--- BLUE TEAM ---", logs_team2, COLOR_AGENT_BLUE, offset_x + half_width
         )
 
-    def render(
-        self,
-        field,
-        memory_team1,
-        memory_team2,
-        logs_team1=None,
-        logs_team2=None,
-    ):
+    def render(self,sim):
         self.screen.fill((10, 10, 10))
         memory_offset_x = self.field_width + self.padding
         memory_offset_y = self.field_height + self.padding
-        self.draw_field(field, offset_x=0, offset_y=0)
-        self.draw_memory(memory_team1, offset_x=memory_offset_x, offset_y=0)
-        self.draw_memory(memory_team2, offset_x=0, offset_y=memory_offset_y)
-        if logs_team1 is None:
-            logs_team1 = ["Status: Active"]
-        if logs_team2 is None:
-            logs_team2 = ["Status: Active"]
-        self.draw_split_info_panel(
-            logs_team1,
-            logs_team2,
-            offset_x=memory_offset_x,
-            offset_y=memory_offset_y,
-        )
-
+        self.draw_field(sim, offset_x=0, offset_y=0)
+        self.draw_memory(sim.squads['RED'].map, offset_x=memory_offset_x, offset_y=0)
+        self.draw_memory(sim.squads['BLUE'].map, offset_x=0, offset_y=memory_offset_y)
+        self.draw_split_info_panel(sim.squads['RED'].get_logs(),sim.squads['BLUE'].get_logs(), offset_x=memory_offset_x, offset_y=memory_offset_y,)
         pygame.display.flip()
 
     async def run_async_visualization(self, sim):
@@ -187,10 +151,6 @@ class Visualizator:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            map1 = sim.squads['RED'].map
-            map2 = sim.squads['BLUE'].map
-            logs1 = sim.squads['RED'].get_logs()
-            logs2 = sim.squads['BLUE'].get_logs()
-            self.render(sim.map, map1, map2, logs1, logs2)
+            self.render(sim)
             await asyncio.sleep(0)
             self.clock.tick(60)

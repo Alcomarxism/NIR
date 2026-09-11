@@ -118,7 +118,7 @@ class AgentRecoon():
         self.name=name
 
     async def make_desigion(self):
-        visibility = maptools.get_fog_view(self.sim.map,self.pos)
+        visibility = maptools.get_fog_view(self.sim,self.pos)
         for v in visibility:
             ceil=ast.literal_eval(v) if isinstance(v, str) else v
             self.squad.map[ceil[0]][ceil[1]]=visibility[v]
