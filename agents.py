@@ -9,50 +9,9 @@ import json
 from typing import List, Literal, Tuple
 import maptools
 import ast
-
+import agenttools
 
 LLM_MODEL="gpt-oss:120b-cloud"
-
-
-def create_move_tool(env, agent):
-    @tool
-    def move_to_cell(x: int, y: int) -> str:
-        """
-        Инструмент для перемещения разведчика на смежную клетку лабиринта.
-        Принимает целевые координаты x и y.
-        Возвращает результат попытки перемещения (feedback).
-        """
-        success, feedback = env.step(agent, (x, y))
-        return feedback
-    
-    return move_to_cell
-
-def create_send_report_tool(agent,squad):
-    @tool
-    def send_report(report: str):
-        """
-        Инструмент для отправко отчета командиру
-        """
-        squad.reports[agent.name]=report
-    return send_report
-
-def create_kill_enemy_tool(simulation):
-    @tool
-    def kill_enemy(x: int, y: int) -> str:
-        """
-        Инструмент для устранения вражеского разведчика.
-        Принимает целевые координаты x и y.
-        Возвращает результат устранения (feedback).
-        """
-        enemy_pos=(x,y)
-        for sq in simulation.squads:
-            for ag in simulation.squads[sq].agents:
-                if ag.pos==enemy_pos:
-                    simulation.squads[sq].kill_agent(ag.name)
-                    return "Вражеский агент устранен"
-        return "Промах"
-    
-    return kill_enemy
 
 
 class AgentComander():
@@ -66,7 +25,7 @@ class AgentComander():
             description="Список приказов ДЛЯ КАЖДОГО разведчика из отряда"
         )
     
-    def __init__(self,recoons,squad):
+    def __init__(self,squad):
         self.squad=squad
         self.parser = PydanticOutputParser(pydantic_object=AgentComander.AgentDecision)
         self.llm = ChatOllama(
@@ -97,18 +56,17 @@ class AgentComander():
             input_variables=["team","recoons_info", "agents_feedback","frontiers","paths_recoons_frontiers","last_orders"],
             partial_variables={"format_instructions": self.parser.get_format_instructions()}
         )
-        self.recoons=recoons
         self.chain = self.prompt | self.llm | self.parser
 
-    async def make_desigion(self,env):
+    async def make_desigion(self):
         frontiers = maptools.get_frontier(self.squad.map)
         paths={}
-        for r in self.recoons:
+        for r in self.squad.agents:
             for f in frontiers:
                 paths[r.name+'->'+str(f)]=maptools.find_path_bfs(r.pos,f,self.squad.map)
         decision: AgentComander.AgentDecision = await self.chain.ainvoke({
             "team": self.squad.squad_name,
-            "recoons_info": json.dumps([{"name": r.name, "pos": r.pos} for r in self.recoons]), 
+            "recoons_info": json.dumps([{"name": r.name, "pos": r.pos} for r in self.squad.agents]), 
             "agents_feedback": json.dumps(self.squad.reports),
             "frontiers": json.dumps(frontiers),
             "paths_recoons_frontiers":json.dumps(paths),
@@ -116,7 +74,7 @@ class AgentComander():
         })
         print(f"Мысли: {decision.thought}")
         orders_map = {single.name: single.order for single in decision.orders}
-        for r in self.recoons:
+        for r in self.squad.agents:
             if r.name in orders_map:
                 self.squad.orders[r.name] = orders_map[r.name]
 
@@ -125,12 +83,12 @@ class AgentRecoon():
         thought: str = Field(description="Мысли")
         report: str = Field(description="Отчет")
 
-    def __init__(self,pos,name,squad,env):
+    def __init__(self,pos,name,squad,sim):
         self.squad=squad
-        self.env=env
-        self.move_tool = create_move_tool(env, self)
-        self.send_report = create_send_report_tool(self,squad)
-        self.kill_enemy = create_kill_enemy_tool(self.squad.simulation)
+        self.sim=sim
+        self.move_tool = agenttools.create_move_tool(self.sim.map, self)
+        self.send_report = agenttools.create_send_report_tool(self,squad)
+        self.kill_enemy = agenttools.create_kill_enemy_tool(self.squad.sim)
         self.llm = ChatOllama(
             model=LLM_MODEL,
             temperature=0.1,
@@ -160,7 +118,7 @@ class AgentRecoon():
         self.name=name
 
     async def make_desigion(self):
-        visibility = self.env.get_fog_view(self.pos)
+        visibility = maptools.get_fog_view(self.sim.map,self.pos)
         for v in visibility:
             ceil=ast.literal_eval(v) if isinstance(v, str) else v
             self.squad.map[ceil[0]][ceil[1]]=visibility[v]

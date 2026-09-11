@@ -58,3 +58,30 @@ def get_frontier(mp):
                     if has_unknown_neighbor:
                         frontier.append((i,j))
         return frontier
+
+
+def get_fog_view(map, agent_pos, radius=3):
+        r, c = agent_pos
+        view = {}
+        for dr in range(-radius, radius + 1):
+            for dc in range(-radius, radius + 1):
+                if dr * dr + dc * dc > radius * radius:
+                    continue
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < len(map) and 0 <= nc < len(map) and not (nr == r and nc == c):
+                    if has_line_of_sight(map,r, c, nr, nc):
+                        cell_type = map[nr][nc]
+                        view[f"[{nr},{nc}]"] = "WALL" if cell_type == 1 else ("EMPTY" if cell_type == 0 else cell_type)
+        return view
+
+def move_agent(map,agent, action):
+        r,c=agent.pos
+        newpos = action
+        if 0 <= newpos[0] < len(map) and 0 <= newpos[1] < len(map) and map[newpos[0]][newpos[1]] == 0:
+            map[r][c] = 0
+            map[newpos[0]][newpos[1]] = agent.squad.squad_name
+            agent.pos=newpos
+            return True, "Успешный шаг."
+        else:
+            map[r][c] =  agent.squad.squad_name
+            return False, "Ошибка, шаг невозможен"

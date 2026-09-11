@@ -191,6 +191,6 @@ class Visualizator:
             map2 = sim.squads['BLUE'].map
             logs1 = sim.squads['RED'].get_logs()
             logs2 = sim.squads['BLUE'].get_logs()
-            self.render(sim.env.get_field(), map1, map2, logs1, logs2)
+            self.render(sim.map, map1, map2, logs1, logs2)
             await asyncio.sleep(0)
             self.clock.tick(60)
