@@ -86,13 +86,13 @@ class AgentRecoon():
     def __init__(self,pos,name,squad,sim):
         self.squad=squad
         self.sim=sim
-        self.move_tool = agenttools.create_move_tool(self.sim.map, self)
+        self.move_tool = agenttools.create_move_tool(self,self.sim.map)
         self.send_report = agenttools.create_send_report_tool(self,squad)
-        self.kill_enemy = agenttools.create_kill_enemy_tool(self.squad.sim)
+        self.shoot_enemy = agenttools.create_shoot_enemy_tool(self,self.squad.sim)
         self.llm = ChatOllama(
             model=LLM_MODEL,
             temperature=0.1,
-        ).bind_tools([self.move_tool,self.send_report,self.kill_enemy])
+        ).bind_tools([self.move_tool,self.send_report,self.shoot_enemy])
         self.prompt=PromptTemplate(
             template="""Ты — разведчик в лабиринте.
             Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
@@ -103,7 +103,7 @@ class AgentRecoon():
             3. Обязательно вызывай `send_report`, если:
             - Ты достиг целевой точки из приказа.
             - Путь заблокирован / приказ невыполним.
-            4. При обнаружении вражеских агентов (тех, чья команда отличается от названия твоей) используй `kill_enemy` для из устранения
+            4. При обнаружении вражеских агентов (тех, чья команда отличается от названия твоей) используй `shoot_enemy` для из устранения
 
             Твоя команда: {team}
             Текущая позиция: {pos}
@@ -118,11 +118,7 @@ class AgentRecoon():
         self.name=name
 
     async def make_desigion(self):
-        visibility = maptools.get_fog_view(self.sim,self.pos)
-        for v in visibility:
-            ceil=ast.literal_eval(v) if isinstance(v, str) else v
-            self.squad.map[ceil[0]][ceil[1]]=visibility[v]
-        
+        visibility = maptools.get_fog_view(self.sim,self.squad,self)      
         prompt_text = self.prompt.format(
             team=self.squad.squad_name,
             pos=str(self.pos),
@@ -135,14 +131,10 @@ class AgentRecoon():
         messages.append(response)
         if response.tool_calls:
             for tool_call in response.tool_calls:
-                name = tool_call["name"]
-                args = tool_call["args"]
-                if name == "move_to_cell":
-                    self.last_feedback = self.move_tool.invoke(args)
-                elif name == "send_report": 
-                    self.send_report.invoke(args)
-                elif name == "kill_enemy": 
-                    self.kill_enemy.invoke(args)
-        else:
-            self.squad.print_to_logs(f"Агент {self.name} не вызывал инструментов.")
- 
+                if tool_call["name"] == "move_to_cell":
+                   self.move_tool.invoke(tool_call["args"])
+                elif tool_call["name"] == "send_report": 
+                    self.send_report.invoke(tool_call["args"])
+                elif tool_call["name"] == "shoot_enemy": 
+                    self.shoot_enemy.invoke(tool_call["args"])
+        maptools.get_fog_view(self.sim,self.squad,self) 
