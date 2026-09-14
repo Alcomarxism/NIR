@@ -63,6 +63,7 @@ def get_frontier(mp):
 def get_fog_view(sim,squad, agent, radius=3):
         r, c = agent.pos
         view = {}
+        enemies = []
         for dr in range(-radius, radius + 1):
             for dc in range(-radius, radius + 1):
                 if dr * dr + dc * dc > radius * radius:
@@ -70,15 +71,16 @@ def get_fog_view(sim,squad, agent, radius=3):
                 nr, nc = r + dr, c + dc
                 if 0 <= nr < len(sim.map) and 0 <= nc < len(sim.map):
                     if has_line_of_sight(sim.map,r, c, nr, nc):
-                        cell_type = sim.map[nr][nc]
-                        view[f"[{nr},{nc}]"] = "WALL" if cell_type == 1 else ("EMPTY" if cell_type == 0 else cell_type)     
-                        squad.map[nr][nc]= view[f"[{nr},{nc}]"]
-
+                        squad.map[nr][nc] = "WALL" if sim.map[nr][nc] == 1 else "EMPTY"
+                        if  squad.map[nr][nc] == "EMPTY":
+                            view[f"[{nr},{nc}]"] = squad.map[nr][nc]
         for sq in sim.squads:
             for ag in sim.squads[sq].agents:
                 key=f"[{ag.pos[0]},{ag.pos[1]}]"
                 if key in view.keys():
                     view[key]=sq
                     squad.map[ag.pos[0]][ag.pos[1]]=sq
-        return view
+                    if ag.squad != agent.squad:
+                         enemies.append(key)
+        return view, enemies
 

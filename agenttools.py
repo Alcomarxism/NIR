@@ -36,11 +36,13 @@ def create_shoot_enemy_tool(agent,simulation):
         """
         enemy_pos=(x,y)
         fb = "Промах"
-        for sq in simulation.squads:
-            for ag in simulation.squads[sq].agents:
-                if ag.pos==enemy_pos:
-                    simulation.squads[sq].kill_agent(ag.name)
-                    fb = "Вражеский агент устранен"
+        if maptools.has_line_of_sight(simulation.map,agent.pos[0],agent.pos[1],x,y):
+            for sq in simulation.squads:
+                for ag in simulation.squads[sq].agents:
+                    if ag.pos==enemy_pos:
+                        simulation.squads[sq].kill_agent(ag.name)
+                        fb = "Вражеский агент устранен"
+                        break
         agent.last_feedback = fb 
-        
+
     return shoot_enemy

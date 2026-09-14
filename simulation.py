@@ -1,4 +1,6 @@
 import squad
+import metrics
+import time
 
 def generate_field():
     field = [
@@ -24,12 +26,17 @@ class Simulation():
     def __init__(self):
         self.map = generate_field()
         self.squads={"RED":squad.Squad(self,[(1,1),(1,3),(3,1)],"RED"),"BLUE": squad.Squad(self,[(13,13),(11,13),(13,11)],"BLUE")}
-
+        self.metrics={sqname: metrics.MetricsCollector(sqname)for sqname in self.squads}
+    
     async def step(self,step_num):
         print(f"\n[Шаг {step_num}]")
         for sq in self.squads:
+            start_time = time.time()
             await self.squads[sq].step()
-
+            step_time = time.time() - start_time
+            self.metrics[sq].collect_step(step_num, self.squads[sq], self, step_time)
+            metrics.plot_squads_comparison(self.metrics, save_path="squads_comparison.png")
+    
     async def run_async_simulation(self):
         for step_num in range(1, 80):  
                 await self.step(step_num)
