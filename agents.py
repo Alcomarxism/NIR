@@ -8,7 +8,6 @@ from langchain_ollama import ChatOllama
 import json
 from typing import List, Literal, Tuple
 import maptools
-import ast
 import agenttools
 
 
@@ -33,13 +32,13 @@ class AgentComander():
         )
         self.prompt=PromptTemplate(
             template="""Ты — командир отряда. Твоя цель — найти и уничтожить отряд противника.
-            В твоем распоряжении 2 класса: Assault (штурмовик) и Recoon (Разведчик)
+            В твоем распоряжении 2 класса: Assault (штурмовик) и Recon (Разведчик)
 
             Используй разведчиков для исследования карты. В случае если разведчик натыкается на протвника он отступает.
             Распределяй разведчиков по разным направлениям, чтобы они не сталкивались в узких коридорах и не шли в одну точку!
 
             Используй штурмовиков для устранения агентов противника.
-            Старайся по возможности отправить несколько штурмовиков против одного противника для создания чичленного перевеса.
+            Старайся по возможности отправить несколько штурмовиков против одного противника для создания численного перевеса.
 
             Каждому агенту ты отдаешь приказы в какую точку двигаться и по какому машруту.
             В приказе пиши полный путь до целевой точки.
@@ -93,13 +92,16 @@ class AgentComander():
                 self.squad.orders[r.name] = orders_map[r.name]
 
 class AgentSolder():
-    def __init__(self,model,pos,name,squad,sim,prompt,agent_class):
+    def __init__(self,model,pos,name,squad,sim,prompt,agent_class,recognise_radius,view_radius,shoot_max_radius):
+        self.recognise_radius=recognise_radius
+        self.view_radius=view_radius
+        self.shoot_max_radius=shoot_max_radius
         self.agent_class=agent_class
         self.squad=squad
         self.sim=sim
         self.move_tool = agenttools.create_move_tool(self,self.sim.map)
         self.send_report = agenttools.create_send_report_tool(self,squad)
-        self.shoot_enemy = agenttools.create_shoot_enemy_tool(self,self.squad.sim)
+        self.shoot_enemy = agenttools.create_shoot_enemy_tool(self,self.squad.sim,self.shoot_max_radius)
         self.llm = ChatOllama(
             model=model,
             temperature=0.1,
@@ -110,13 +112,13 @@ class AgentSolder():
         self.name=name
 
     async def make_desigion(self):
-        maptools.update_map(self.sim,self.squad,self)
+        maptools.update_map(self.sim,self.squad,self,self.recognise_radius)
         prompt_text = self.prompt.format(
             team=self.squad.squad_name,
             pos=str(self.pos),
-            visibility=json.dumps(maptools.get_view(self.squad.map,self.pos,3)),
-            enemies=json.dumps(maptools.get_enemies_in_radius(self.squad.map,self.pos,3)),
-            dangerous_cells=json.dumps(maptools.find_dangerous_cells(self.squad.map,self.pos,3)),
+            visibility=json.dumps(maptools.get_view(self.squad.map,self.pos,self.view_radius)),
+            enemies=json.dumps(maptools.get_enemies_in_radius(self.squad.map,self.pos,self.view_radius)),
+            dangerous_cells=json.dumps(maptools.find_dangerous_cells(self.squad.map,self.pos,self.view_radius)),
             last_order=str(self.squad.orders.get(self.name, "Нет приказа")),
             last_feedback=self.last_feedback
         )
@@ -131,9 +133,9 @@ class AgentSolder():
                     self.send_report.invoke(tool_call["args"])
                 elif tool_call["name"] == "shoot_enemy": 
                     self.shoot_enemy.invoke(tool_call["args"])
-        maptools.update_map(self.sim,self.squad,self) 
+        maptools.update_map(self.sim,self.squad,self,self.recognise_radius)
 
-class AgentRecoon(AgentSolder):
+class AgentRecon(AgentSolder):
     def __init__(self,model,pos,name,squad,sim):
         prompt = PromptTemplate(
             template="""
@@ -142,12 +144,13 @@ class AgentRecoon(AgentSolder):
 
             Твоя задача - выполнять приказы.
             Текущий  приказ: {last_order}.
-            После выполенеия приказа ты отправляешь отчет используя `send_report`
+            После выполнения приказа ты отправляешь отчет используя `send_report`
             В случае если по какаким-либо причинам приказ не может быть выполнен ты также отправляешь отчет используя `send_report`
 
             Если в ходе разредки ты натыкаешся на вражеского агента (ENEMY), твоя задача - отступить.
             При отступлении перемещайся на клетки с меньшим уровнем опасности. 
             В случае, если отступление невозможно, используй `shoot_enemy` для выстрела по вражескому агенту. Но свступай в бой только в крайнем случае.
+            Твой максимальный радиус стрельбы - одна клетка.
             После отступления в безопасную зону отправь отчет командиру. Пока ты находишься в опасности не отправляй отчет.
 
             Твоя команда: {team}
@@ -160,7 +163,7 @@ class AgentRecoon(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(model,pos,name,squad,sim,prompt,"Recoon")
+        super().__init__(model,pos,name,squad,sim,prompt,"Recon",3,1,1)
 
 class AgentAssault(AgentSolder):
     def __init__(self,model,pos,name,squad,sim):
@@ -175,6 +178,7 @@ class AgentAssault(AgentSolder):
             В случае если по какаким-либо причинам приказ не может быть выполнен ты также отправляешь отчет используя `send_report`
 
             Если в ходе разредки ты натыкаешся на вражеского агента (ENEMY), твоя задача - устранить его, используя `shoot_enemy`.
+            Твой максимальный радиус стрельбы - три клетки по прямой..
             После устранения ты должен отправить отчет.
 
             Твоя команда: {team}
@@ -187,4 +191,4 @@ class AgentAssault(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(model,pos,name,squad,sim,prompt,"Assault")
+        super().__init__(model,pos,name,squad,sim,prompt,"Assault",1,1,3)

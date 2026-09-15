@@ -10,7 +10,7 @@ def create_move_tool(agent,map):
         Принимает целевые координаты x и y.
         Возвращает результат попытки перемещения (feedback).
         """
-        if 0 <= x < len(map) and 0 <= y < len(map) and map[x][y] == 0 and abs(x-agent.pos[0])<=1 and abs(y-agent.pos[1])<=1:
+        if 0 <= x < len(map) and 0 <= y < len(map) and map[x][y] == 0 and abs(x-agent.pos[0])+abs(y-agent.pos[1])<=1:
             agent.pos=(x,y)
             agent.last_feedback = "Успешный шаг."
         else:
@@ -27,7 +27,7 @@ def create_send_report_tool(agent,squad):
         squad.reports[agent.name]=report
     return send_report
 
-def create_shoot_enemy_tool(agent,simulation,maxdist=3):
+def create_shoot_enemy_tool(agent,simulation,maxdist):
     @tool
     def shoot_enemy(x: int, y: int) -> str:
         """

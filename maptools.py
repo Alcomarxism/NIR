@@ -34,12 +34,13 @@ def find_path_bfs(start, target, squad_map):
             return path
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = curr_x + dx, curr_y + dy
-            cell_val = squad_map[nx][ny]
-            if (nx, ny) not in visited and (cell_val == "EMPTY" or (nx, ny) == target):
-                visited.add((nx, ny))
-                new_path = list(path)
-                new_path.append((nx, ny))
-                queue.append(new_path)
+            if 0 <= nx < len(squad_map) and 0 <= ny < len(squad_map):
+                cell_val = squad_map[nx][ny]
+                if (nx, ny) not in visited and (cell_val == "EMPTY" or (nx, ny) == target):
+                    visited.add((nx, ny))
+                    new_path = list(path)
+                    new_path.append((nx, ny))
+                    queue.append(new_path)
     return []
 
 def get_frontier(mp):
@@ -78,7 +79,7 @@ def get_enemies_in_radius(mp,pos,radius):
                     enemies.append((nr,nc))
     return enemies
 
-def update_map(sim,squad, agent, radius=3):
+def update_map(sim,squad, agent, radius):
         r, c = agent.pos
         for dr in range(-radius, radius + 1):
             for dc in range(-radius, radius + 1):

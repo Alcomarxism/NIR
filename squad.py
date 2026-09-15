@@ -5,7 +5,7 @@ class Squad():
         self.squad_name = squad_name
         self.sim = sim
         self.map = [['?' for _ in range(len(sim.map))] for _ in range(len(sim.map))]
-        recoons = {agents.AgentRecoon(model,recoons_start_pos[i],squad_name+" Recoon"+str(i),self,self.sim) for i in range(len(recoons_start_pos))}
+        recoons = {agents.AgentRecon(model,recoons_start_pos[i],squad_name+" Recoon"+str(i),self,self.sim) for i in range(len(recoons_start_pos))}
         assaults = {agents.AgentAssault(model,assault_start_pos[i],squad_name+" Assault"+str(i),self,self.sim) for i in range(len(assault_start_pos))}
         self.agents= recoons | assaults
         self.orders={ag.name: "Нет приказа" for ag in self.agents}
