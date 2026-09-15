@@ -78,12 +78,9 @@ class AgentComander():
             if r.name in orders_map:
                 self.squad.orders[r.name] = orders_map[r.name]
 
-class AgentRecoon():
-    class AgentDecision(BaseModel):
-        thought: str = Field(description="Мысли")
-        report: str = Field(description="Отчет")
-
-    def __init__(self,pos,name,squad,sim):
+class AgentSolder():
+    def __init__(self,pos,name,squad,sim,prompt):
+        self.agent_class="Recoon"
         self.squad=squad
         self.sim=sim
         self.move_tool = agenttools.create_move_tool(self,self.sim.map)
@@ -93,7 +90,38 @@ class AgentRecoon():
             model=LLM_MODEL,
             temperature=0.1,
         ).bind_tools([self.move_tool,self.send_report,self.shoot_enemy])
-        self.prompt=PromptTemplate(
+        self.prompt=prompt
+        self.last_feedback = "Старт"
+        self.pos=pos
+        self.name=name
+
+    async def make_desigion(self):
+        maptools.update_map(self.sim,self.squad,self)
+        prompt_text = self.prompt.format(
+            team=self.squad.squad_name,
+            pos=str(self.pos),
+            visibility=json.dumps(maptools.get_view(self.squad.map,self.pos,3)),
+            enemies=json.dumps(maptools.get_enemies_in_radius(self.squad.map,self.pos,3)),
+            dangerous_cells=json.dumps(maptools.find_dangerous_cells(self.squad.map,self.pos,3)),
+            last_order=str(self.squad.orders.get(self.name, "Нет приказа")),
+            last_feedback=self.last_feedback
+        )
+        messages = [HumanMessage(content=prompt_text)]
+        response = await self.llm.ainvoke(messages)
+        messages.append(response)
+        if response.tool_calls:
+            for tool_call in response.tool_calls:
+                if tool_call["name"] == "move_to_cell":
+                   self.move_tool.invoke(tool_call["args"])
+                elif tool_call["name"] == "send_report": 
+                    self.send_report.invoke(tool_call["args"])
+                elif tool_call["name"] == "shoot_enemy": 
+                    self.shoot_enemy.invoke(tool_call["args"])
+        maptools.update_map(self.sim,self.squad,self) 
+
+class AgentRecoon(AgentSolder):
+    def __init__(self,pos,name,squad,sim):
+        prompt = PromptTemplate(
             template="""Ты — разведчик в лабиринте.
             Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
 
@@ -111,32 +139,34 @@ class AgentRecoon():
             Вражеские агенты в поле зрения: {enemies}
             Отданный тебе приказ: {last_order}
             Результат прошлого действия: {last_feedback}
+            Уровень опасности клеток: {dangerous_cells}
             """,
-            input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies"],
+            input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        self.last_feedback = "Старт"
-        self.pos=pos
-        self.name=name
+        super().__init__(pos,name,squad,sim,prompt)
 
-    async def make_desigion(self):
-        visibility, enemies = maptools.get_fog_view(self.sim,self.squad,self)      
-        prompt_text = self.prompt.format(
-            team=self.squad.squad_name,
-            pos=str(self.pos),
-            visibility=json.dumps(visibility),
-            enemies=json.dumps(enemies),
-            last_order=str(self.squad.orders.get(self.name, "Нет приказа")),
-            last_feedback=self.last_feedback
+class AgentAssault(AgentSolder):
+    def __init__(self,pos,name,squad,sim):
+        prompt = PromptTemplate(
+            template="""Ты — разведчик в лабиринте.
+            Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
+
+           Правила работы:
+            1. Выполняй приказ: {last_order}.
+            2. Для шага используй `move_to_cell`.
+            3. Обязательно вызывай `send_report`, если:
+            - Ты достиг целевой точки из приказа.
+            - Путь заблокирован / приказ невыполним.
+            4. При обнаружении вражеских агентов (тех, чья команда отличается от названия твоей) используй `shoot_enemy` для из устранения
+
+            Твоя команда: {team}
+            Текущая позиция: {pos}
+            Твое поле зрения: {visibility}
+            Вражеские агенты в поле зрения: {enemies}
+            Отданный тебе приказ: {last_order}
+            Результат прошлого действия: {last_feedback}
+            Уровень опасности клеток: {dangerous_cells}
+            """,
+            input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        messages = [HumanMessage(content=prompt_text)]
-        response = await self.llm.ainvoke(messages)
-        messages.append(response)
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
-                if tool_call["name"] == "move_to_cell":
-                   self.move_tool.invoke(tool_call["args"])
-                elif tool_call["name"] == "send_report": 
-                    self.send_report.invoke(tool_call["args"])
-                elif tool_call["name"] == "shoot_enemy": 
-                    self.shoot_enemy.invoke(tool_call["args"])
-        maptools.get_fog_view(self.sim,self.squad,self) 
+        super().__init__(pos,name,squad,sim,prompt)

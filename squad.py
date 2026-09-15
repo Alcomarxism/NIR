@@ -1,13 +1,15 @@
 import agents
 
 class Squad():
-    def __init__(self, sim,recoons_start_pos,squad_name):
+    def __init__(self, sim,squad_name,recoons_start_pos,assault_start_pos):
         self.squad_name = squad_name
         self.sim = sim
         self.map = [['?' for _ in range(len(sim.map))] for _ in range(len(sim.map))]
-        self.agents={agents.AgentRecoon(recoons_start_pos[i],squad_name+" Recoon"+str(i),self,self.sim) for i in range(len(recoons_start_pos))}
-        self.orders={squad_name+" Recoon"+str(i): "Нет приказа" for i in range(len(recoons_start_pos))}
-        self.reports={squad_name+" Recoon"+str(i): "Нет отчета" for i in range(len(recoons_start_pos))}
+        recoons = {agents.AgentRecoon(recoons_start_pos[i],squad_name+" Recoon"+str(i),self,self.sim) for i in range(len(recoons_start_pos))}
+        assaults = {agents.AgentAssault(assault_start_pos[i],squad_name+" Assault"+str(i),self,self.sim) for i in range(len(assault_start_pos))}
+        self.agents= recoons | assaults
+        self.orders={ag.name: "Нет приказа" for ag in self.agents}
+        self.reports={ag.name: "Нет отчета" for ag in self.agents}
         self.commander=agents.AgentComander(self)
         self.logs=[]
 

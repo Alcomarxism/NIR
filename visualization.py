@@ -1,4 +1,3 @@
-import ast
 import asyncio
 import pygame
 import textwrap
@@ -31,15 +30,9 @@ class Visualizator:
         self.clock = pygame.time.Clock()
 
     def draw_agent(self, cell_size, agent_pos, color, offset_x=0, offset_y=0):
-        agent_x = (
-            offset_x + agent_pos[1] * cell_size + cell_size // 2
-        )
-        agent_y = (
-            offset_y + agent_pos[0] * cell_size + cell_size // 2
-        )
-        pygame.draw.circle(
-            self.screen, color, (agent_x, agent_y), cell_size // 3
-        )
+        agent_x = (offset_x + agent_pos[1] * cell_size + cell_size // 2)
+        agent_y = (offset_y + agent_pos[0] * cell_size + cell_size // 2)
+        pygame.draw.circle(self.screen, color, (agent_x, agent_y), cell_size // 3)
 
     def draw_field(self, sim, offset_x=0, offset_y=0):
         cell_size=self.field_width/len(sim.map)
@@ -70,10 +63,10 @@ class Visualizator:
                     pygame.draw.rect(self.screen, COLOR_FOG, rect)
                 elif cell_type == "WALL":
                     pygame.draw.rect(self.screen, COLOR_WALL, rect)
-                elif cell_type == "RED":
+                elif cell_type == "ENEMY":
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
                     self.draw_agent(cell_size,(r, c), COLOR_AGENT_RED, offset_x, offset_y)
-                elif cell_type == "BLUE":
+                elif cell_type == "ALLY":
                     pygame.draw.rect(self.screen, COLOR_EMPTY, rect)
                     self.draw_agent(cell_size,(r, c), COLOR_AGENT_BLUE, offset_x, offset_y)
                 else:

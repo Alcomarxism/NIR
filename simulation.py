@@ -25,7 +25,10 @@ def generate_field():
 class Simulation():
     def __init__(self):
         self.map = generate_field()
-        self.squads={"RED":squad.Squad(self,[(1,1),(1,3),(3,1)],"RED"),"BLUE": squad.Squad(self,[(13,13),(11,13),(13,11)],"BLUE")}
+        self.squads={
+            "RED":squad.Squad(self,"RED", recoons_start_pos=[(1,3),(3,1)], assault_start_pos=[(1,1),(3,3)]),
+            "BLUE": squad.Squad(self,"BLUE",recoons_start_pos=[(13,11),(11,13)], assault_start_pos=[(13,13),(11,11)])
+        }
         self.metrics={sqname: metrics.MetricsCollector(sqname)for sqname in self.squads}
     
     async def step(self,step_num):
