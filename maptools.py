@@ -123,6 +123,6 @@ def find_dangerous_cells(mp,pos,radius):
                 for er, ec in enemy_positions:
                     if  has_line_of_sight(mp,nr,nc, er,ec):
                         dist = abs(nr - er) + abs(nc - ec)
-                        dg+=1/dist
+                        dg+=1/(dist+1)
                 dangerous[f"[{nr},{nc}]"]=dg
     return dangerous

@@ -11,8 +11,6 @@ import maptools
 import ast
 import agenttools
 
-LLM_MODEL="gpt-oss:120b-cloud"
-
 
 class AgentComander():
     class Order(BaseModel):
@@ -25,11 +23,11 @@ class AgentComander():
             description="Список приказов ДЛЯ КАЖДОГО разведчика из отряда"
         )
     
-    def __init__(self,squad):
+    def __init__(self,model,squad):
         self.squad=squad
         self.parser = PydanticOutputParser(pydantic_object=AgentComander.AgentDecision)
         self.llm = ChatOllama(
-            model="gpt-oss:120b-cloud",
+            model=model,
             temperature=0.1,
             format="json",
         )
@@ -79,7 +77,7 @@ class AgentComander():
                 self.squad.orders[r.name] = orders_map[r.name]
 
 class AgentSolder():
-    def __init__(self,pos,name,squad,sim,prompt):
+    def __init__(self,model,pos,name,squad,sim,prompt):
         self.agent_class="Recoon"
         self.squad=squad
         self.sim=sim
@@ -87,7 +85,7 @@ class AgentSolder():
         self.send_report = agenttools.create_send_report_tool(self,squad)
         self.shoot_enemy = agenttools.create_shoot_enemy_tool(self,self.squad.sim)
         self.llm = ChatOllama(
-            model=LLM_MODEL,
+            model=model,
             temperature=0.1,
         ).bind_tools([self.move_tool,self.send_report,self.shoot_enemy])
         self.prompt=prompt
@@ -120,9 +118,10 @@ class AgentSolder():
         maptools.update_map(self.sim,self.squad,self) 
 
 class AgentRecoon(AgentSolder):
-    def __init__(self,pos,name,squad,sim):
+    def __init__(self,model,pos,name,squad,sim):
         prompt = PromptTemplate(
-            template="""Ты — разведчик в лабиринте.
+            template="""
+            Ты — разведчик в лабиринте.
             Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
 
            Правила работы:
@@ -143,10 +142,10 @@ class AgentRecoon(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(pos,name,squad,sim,prompt)
+        super().__init__(model,pos,name,squad,sim,prompt)
 
 class AgentAssault(AgentSolder):
-    def __init__(self,pos,name,squad,sim):
+    def __init__(self,model,pos,name,squad,sim):
         prompt = PromptTemplate(
             template="""Ты — разведчик в лабиринте.
             Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
@@ -169,4 +168,4 @@ class AgentAssault(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(pos,name,squad,sim,prompt)
+        super().__init__(model,pos,name,squad,sim,prompt)

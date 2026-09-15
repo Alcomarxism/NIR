@@ -2,6 +2,8 @@ import squad
 import metrics
 import time
 
+LLM_MODEL="gpt-oss:120b-cloud"
+
 def generate_field():
     field = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -26,8 +28,8 @@ class Simulation():
     def __init__(self):
         self.map = generate_field()
         self.squads={
-            "RED":squad.Squad(self,"RED", recoons_start_pos=[(1,3),(3,1)], assault_start_pos=[(1,1),(3,3)]),
-            "BLUE": squad.Squad(self,"BLUE",recoons_start_pos=[(13,11),(11,13)], assault_start_pos=[(13,13),(11,11)])
+            "RED":squad.Squad(LLM_MODEL,self,"RED", recoons_start_pos=[(1,3),(3,1)], assault_start_pos=[(1,1),(3,3)]),
+            "BLUE": squad.Squad(LLM_MODEL,self,"BLUE",recoons_start_pos=[(13,11),(11,13)], assault_start_pos=[(13,13),(11,11)])
         }
         self.metrics={sqname: metrics.MetricsCollector(sqname)for sqname in self.squads}
     
