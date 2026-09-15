@@ -32,18 +32,27 @@ class AgentComander():
             format="json",
         )
         self.prompt=PromptTemplate(
-            template="""Ты — командир отряда разведчиков Твоя цель — изучить весь лабиринт.
-            
-            Ты отдваешь приказы разведчикам в какую точку им двигаться и по какому машруту
-            Пока агент не отчитался о том что выполнили приказ или приказ невополним не давай нового приказа
+            template="""Ты — командир отряда. Твоя цель — найти и уничтожить отряд противника.
+            В твоем распоряжении 2 класса: Assault (штурмовик) и Recoon (Разведчик)
+
+            Используй разведчиков для исследования карты. В случае если разведчик натыкается на протвника он отступает.
             Распределяй разведчиков по разным направлениям, чтобы они не сталкивались в узких коридорах и не шли в одну точку!
 
+            Используй штурмовиков для устранения агентов противника.
+            Старайся по возможности отправить несколько штурмовиков против одного противника для создания чичленного перевеса.
+
+            Каждому агенту ты отдаешь приказы в какую точку двигаться и по какому машруту.
+            В приказе пиши полный путь до целевой точки.
+            Пока агент не отчитался о том что выполнили приказ или приказ невополним не давай нового приказа.
+
             Твоя команда: {team}
-            Имена и позиции разведчиков: {recoons_info} 
+            Имена и позиции агентов: {agents_info} 
             Отчеты от агентов: {agents_feedback}
             Точки на границе неизвестного (ФРОНТИР): {frontiers}
             Маршруты от агентов до форнтира {paths_recoons_frontiers}
-            ОТданные агентам приказы: {last_orders}
+            Найденные противники {enemies}
+            Маршруты от агентов до противников {paths_recoons_enemies}
+            Отданные агентам приказы: {last_orders}
 
             Требования к ответу:
             1. В 'thought' опиши общую стратегию распределения группы.
@@ -51,23 +60,30 @@ class AgentComander():
 
             {format_instructions}
             """,
-            input_variables=["team","recoons_info", "agents_feedback","frontiers","paths_recoons_frontiers","last_orders"],
+            input_variables=["team","agents_info", "agents_feedback","frontiers","paths_recoons_frontiers","enemies","paths_recoons_enemies","last_orders"],
             partial_variables={"format_instructions": self.parser.get_format_instructions()}
         )
         self.chain = self.prompt | self.llm | self.parser
 
     async def make_desigion(self):
         frontiers = maptools.get_frontier(self.squad.map)
-        paths={}
+        enemies = maptools.get_all_enemies(self.squad.map)
+        paths_to_frontiers={}
         for r in self.squad.agents:
             for f in frontiers:
-                paths[r.name+'->'+str(f)]=maptools.find_path_bfs(r.pos,f,self.squad.map)
+                paths_to_frontiers[r.name+'->'+str(f)]=maptools.find_path_bfs(r.pos,f,self.squad.map)
+        paths_to_enemies={}
+        for r in self.squad.agents:
+            for e in enemies:
+                paths_to_enemies[r.name+'->'+str(e)]=maptools.find_path_bfs(r.pos,e,self.squad.map)
         decision: AgentComander.AgentDecision = await self.chain.ainvoke({
             "team": self.squad.squad_name,
-            "recoons_info": json.dumps([{"name": r.name, "pos": r.pos} for r in self.squad.agents]), 
+            "agents_info": json.dumps([{"name": r.name, "pos": r.pos,"class":r.agent_class} for r in self.squad.agents]), 
             "agents_feedback": json.dumps(self.squad.reports),
             "frontiers": json.dumps(frontiers),
-            "paths_recoons_frontiers":json.dumps(paths),
+            "paths_recoons_frontiers":json.dumps(paths_to_frontiers),
+            "enemies":json.dumps(enemies),
+            "paths_recoons_enemies":json.dumps(paths_to_enemies),
             "last_orders": json.dumps(self.squad.orders),
         })
         print(f"Мысли: {decision.thought}")
@@ -77,8 +93,8 @@ class AgentComander():
                 self.squad.orders[r.name] = orders_map[r.name]
 
 class AgentSolder():
-    def __init__(self,model,pos,name,squad,sim,prompt):
-        self.agent_class="Recoon"
+    def __init__(self,model,pos,name,squad,sim,prompt,agent_class):
+        self.agent_class=agent_class
         self.squad=squad
         self.sim=sim
         self.move_tool = agenttools.create_move_tool(self,self.sim.map)
@@ -122,15 +138,17 @@ class AgentRecoon(AgentSolder):
         prompt = PromptTemplate(
             template="""
             Ты — разведчик в лабиринте.
-            Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
+            Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент `move_to_cell`.
 
-           Правила работы:
-            1. Выполняй приказ: {last_order}.
-            2. Для шага используй `move_to_cell`.
-            3. Обязательно вызывай `send_report`, если:
-            - Ты достиг целевой точки из приказа.
-            - Путь заблокирован / приказ невыполним.
-            4. При обнаружении вражеских агентов (тех, чья команда отличается от названия твоей) используй `shoot_enemy` для из устранения
+            Твоя задача - выполнять приказы.
+            Текущий  приказ: {last_order}.
+            После выполенеия приказа ты отправляешь отчет используя `send_report`
+            В случае если по какаким-либо причинам приказ не может быть выполнен ты также отправляешь отчет используя `send_report`
+
+            Если в ходе разредки ты натыкаешся на вражеского агента (ENEMY), твоя задача - отступить.
+            При отступлении перемещайся на клетки с меньшим уровнем опасности. 
+            В случае, если отступление невозможно, используй `shoot_enemy` для выстрела по вражескому агенту. Но свступай в бой только в крайнем случае.
+            После отступления в безопасную зону отправь отчет командиру. Пока ты находишься в опасности не отправляй отчет.
 
             Твоя команда: {team}
             Текущая позиция: {pos}
@@ -142,21 +160,22 @@ class AgentRecoon(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(model,pos,name,squad,sim,prompt)
+        super().__init__(model,pos,name,squad,sim,prompt,"Recoon")
 
 class AgentAssault(AgentSolder):
     def __init__(self,model,pos,name,squad,sim):
         prompt = PromptTemplate(
-            template="""Ты — разведчик в лабиринте.
-            Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент move_to_cell.
+            template="""
+            Ты — штурмовик в лабиринте.
+            Ты можешь перемещаться только на соседние клетки (изменять x или y на ±1), используя доступный инструмент `move_to_cell`.
 
-           Правила работы:
-            1. Выполняй приказ: {last_order}.
-            2. Для шага используй `move_to_cell`.
-            3. Обязательно вызывай `send_report`, если:
-            - Ты достиг целевой точки из приказа.
-            - Путь заблокирован / приказ невыполним.
-            4. При обнаружении вражеских агентов (тех, чья команда отличается от названия твоей) используй `shoot_enemy` для из устранения
+            Твоя задача - выполнять приказы.
+            Текущий  приказ: {last_order}.
+            После выполенеия приказа ты отправляешь отчет используя `send_report`
+            В случае если по какаким-либо причинам приказ не может быть выполнен ты также отправляешь отчет используя `send_report`
+
+            Если в ходе разредки ты натыкаешся на вражеского агента (ENEMY), твоя задача - устранить его, используя `shoot_enemy`.
+            После устранения ты должен отправить отчет.
 
             Твоя команда: {team}
             Текущая позиция: {pos}
@@ -168,4 +187,4 @@ class AgentAssault(AgentSolder):
             """,
             input_variables=["team","pos","visibility", "last_order", "last_feedback","enemies","dangerous_cells"],
         )
-        super().__init__(model,pos,name,squad,sim,prompt)
+        super().__init__(model,pos,name,squad,sim,prompt,"Assault")
