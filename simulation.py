@@ -2,7 +2,7 @@ import squad
 import metrics
 import time
 
-LLM_MODEL="gpt-oss:120b-cloud"
+LLM_MODEL="gpt-oss:20b-cloud"
 
 def generate_field():
     field = [
