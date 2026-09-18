@@ -11,7 +11,7 @@ COLOR_GRID = (180, 180, 180)
 COLOR_FRONTIER = (255, 0, 0)
 COLOR_TEXT_BG = (20, 20, 20)
 COLOR_TEXT = (220, 220, 220)
-
+COLOR_AGENT_TEXT = (255, 255, 255)
 
 class Visualizator:
 
@@ -29,10 +29,17 @@ class Visualizator:
         pygame.display.set_caption("Simulation & Teams Memory")
         self.clock = pygame.time.Clock()
 
-    def draw_agent(self, cell_size, agent_pos, color, offset_x=0, offset_y=0):
-        agent_x = (offset_x + agent_pos[1] * cell_size + cell_size // 2)
-        agent_y = (offset_y + agent_pos[0] * cell_size + cell_size // 2)
-        pygame.draw.circle(self.screen, color, (agent_x, agent_y), cell_size // 3)
+    def draw_agent(self, cell_size, agent_pos, color, offset_x=0, offset_y=0, label=""):
+        agent_x = int(offset_x + agent_pos[1] * cell_size + cell_size // 2)
+        agent_y = int(offset_y + agent_pos[0] * cell_size + cell_size // 2)
+        radius = max(2, int(cell_size // 3))
+        pygame.draw.circle(self.screen, color, (agent_x, agent_y), radius)
+        if label:
+            font_size = max(10, int(radius * 1.4))
+            agent_font = pygame.font.SysFont("Consolas", font_size, bold=True)
+            text_surface = agent_font.render(str(label)[:2], True, COLOR_AGENT_TEXT)
+            text_rect = text_surface.get_rect(center=(agent_x, agent_y))
+            self.screen.blit(text_surface, text_rect)
 
     def draw_field(self, sim, offset_x=0, offset_y=0):
         cell_size=self.field_width/len(sim.map)
@@ -47,10 +54,11 @@ class Visualizator:
                 pygame.draw.rect(self.screen, COLOR_GRID, rect, 1)
         for sq in sim.squads:
             for ag in sim.squads[sq].agents:
+                class_label = "R" if ag.agent_class == "Recon" else "A" if ag.agent_class == "Assault" else "" 
                 if sq=="RED":
-                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_RED, offset_x, offset_y)
+                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_RED, offset_x, offset_y,class_label)
                 elif sq=="BLUE":
-                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_BLUE, offset_x, offset_y)
+                    self.draw_agent(cell_size,ag.pos, COLOR_AGENT_BLUE, offset_x, offset_y,class_label)
 
 
     def draw_memory(self, memory, offset_x=0, offset_y=0):
@@ -124,9 +132,7 @@ class Visualizator:
                 )
             self.screen.set_clip(None)
         draw_column("--- RED TEAM ---", logs_team1, COLOR_AGENT_RED, offset_x)
-        draw_column(
-            "--- BLUE TEAM ---", logs_team2, COLOR_AGENT_BLUE, offset_x + half_width
-        )
+        draw_column("--- BLUE TEAM ---", logs_team2, COLOR_AGENT_BLUE, offset_x + half_width)
 
     def render(self,sim):
         self.screen.fill((10, 10, 10))

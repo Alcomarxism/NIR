@@ -2,7 +2,7 @@ import maptools
 from langchain_core.tools import tool
 import random
 
-def create_move_tool(agent,map):
+def create_move_tool(agent,squad,map):
     @tool
     def move_to_cell(x: int, y: int) -> str:
         """
@@ -12,9 +12,11 @@ def create_move_tool(agent,map):
         """
         if 0 <= x < len(map) and 0 <= y < len(map) and map[x][y] == 0 and abs(x-agent.pos[0])+abs(y-agent.pos[1])<=1:
             agent.pos=(x,y)
-            agent.last_feedback = "Успешный шаг."
+            squad.metrics_collector.true_move += 1
+            return "Успешный шаг."
         else:
-            agent.last_feedback = "Ошибка, шаг невозможен"
+            squad.metrics_collector.false_move += 1
+            return "Ошибка, шаг невозможен"
     
     return move_to_cell
 
@@ -25,9 +27,10 @@ def create_send_report_tool(agent,squad):
         Инструмент для отправко отчета командиру
         """
         squad.reports[agent.name]=report
+        return "Отчет отправлен"
     return send_report
 
-def create_shoot_enemy_tool(agent,simulation,maxdist):
+def create_shoot_enemy_tool(agent,squad,simulation,maxdist):
     @tool
     def shoot_enemy(x: int, y: int) -> str:
         """
@@ -36,7 +39,7 @@ def create_shoot_enemy_tool(agent,simulation,maxdist):
         Возвращает результат устранения (feedback).
         """
         enemy_pos=(x,y)
-        fb = "Промах"
+        fb = ""
         if maptools.has_line_of_sight(simulation.map,agent.pos[0],agent.pos[1],x,y):
             for sq in simulation.squads:
                 for ag in simulation.squads[sq].agents:
@@ -45,8 +48,16 @@ def create_shoot_enemy_tool(agent,simulation,maxdist):
                         prob = 1+1/maxdist-dist/maxdist
                         if random.random() < prob:
                             simulation.squads[sq].kill_agent(ag.name)
+                            squad.metrics_collector.enemies_killed += 1
                             fb = "Вражеский агент устранен"
+                        else:
+                            fb = "Промах"
                         break
-        agent.last_feedback = fb 
+        if fb == "":
+            fb = "Промах"
+            squad.metrics_collector.false_shoot += 1
+        else:
+            squad.metrics_collector.true_shoot += 1
+        return fb 
 
     return shoot_enemy

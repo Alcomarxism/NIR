@@ -1,8 +1,4 @@
 import squad
-import metrics
-import time
-
-LLM_MODEL="gpt-oss:120b-cloud"
 
 def generate_field():
     field = [
@@ -28,20 +24,16 @@ class Simulation():
     def __init__(self):
         self.map = generate_field()
         self.squads={
-            "RED":squad.Squad(LLM_MODEL,self,"RED", recoons_start_pos=[(1,3),(3,1)], assault_start_pos=[(1,1),(3,3)]),
-            "BLUE": squad.Squad(LLM_MODEL,self,"BLUE",recoons_start_pos=[(13,11),(11,13)], assault_start_pos=[(13,13),(11,11)])
+            "RED":squad.Squad("gpt-oss:20b-cloud",self,"RED", recoons_start_pos=[(1,3),(3,1)], assault_start_pos=[(1,1),(3,3)]),
+            "BLUE": squad.Squad("gemma4:31b-cloud",self,"BLUE",recoons_start_pos=[(13,11),(11,13)], assault_start_pos=[(13,13),(11,11)])
         }
-        self.metrics={sqname: metrics.MetricsCollector(sqname)for sqname in self.squads}
     
     async def step(self,step_num):
         print(f"\n[Шаг {step_num}]")
         for sq in self.squads:
-            start_time = time.time()
             await self.squads[sq].step()
-            step_time = time.time() - start_time
-            self.metrics[sq].collect_step(step_num, self.squads[sq], self, step_time)
-            metrics.plot_squads_comparison(self.metrics, save_path="squads_comparison.png")
-    
+            print( self.squads[sq].metrics_collector.get_metrics())
+
     async def run_async_simulation(self):
         for step_num in range(1, 80):  
                 await self.step(step_num)

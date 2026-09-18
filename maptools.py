@@ -21,28 +21,6 @@ def has_line_of_sight(grid,r0, c0, r1, c1):
             err += dr
             curr_c += sc        
 
-
-def find_path_bfs(start, target, squad_map):
-    if start == target:
-        return [start]
-    queue = deque([[start]])
-    visited = {start}
-    while queue:
-        path = queue.popleft()
-        curr_x, curr_y = path[-1]
-        if (curr_x, curr_y) == target:
-            return path
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nx, ny = curr_x + dx, curr_y + dy
-            if 0 <= nx < len(squad_map) and 0 <= ny < len(squad_map):
-                cell_val = squad_map[nx][ny]
-                if (nx, ny) not in visited and (cell_val == "EMPTY" or (nx, ny) == target):
-                    visited.add((nx, ny))
-                    new_path = list(path)
-                    new_path.append((nx, ny))
-                    queue.append(new_path)
-    return []
-
 def get_frontier(mp):
         frontier = []
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
